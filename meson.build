@@ -153,6 +153,13 @@ gstvideo_dep = dependency('gstreamer-video-1.0', version : gst_req,
 gstgl_dep = dependency('gstreamer-gl-1.0', version : gst_req,
     fallback : ['gst-plugins-bad', 'gstgl_dep'], required : false)
 
+x11_dep = dependency('x11', required : false)
+
+if host_machine.system() != 'windows'
+  gstcheck_dep = dependency('gstreamer-check-1.0', version : gst_req,
+    fallback : ['gstreamer', 'gst_check_dep'])
+endif
+
 libm = cc.find_library('m', required : false)
 glib_dep = dependency('glib-2.0', version : glib_req)
 gio_dep = dependency('gio-2.0', version : glib_req)
@@ -286,6 +293,10 @@ endif
 
 if gstgl_dep.found()
   cdata.set ('HAVE_GST_GL', 1)
+endif
+
+if x11_dep.found()
+  cdata.set ('HAVE_X11', 1)
 endif
 
 omx_struct_packing = get_option ('with_omx_struct_packing').to_int()
