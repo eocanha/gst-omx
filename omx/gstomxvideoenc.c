@@ -1582,7 +1582,7 @@ gst_omx_video_enc_fill_buffer (GstOMXVideoEnc * self, GstBuffer * inbuf,
       if (!gst_video_frame_map (&frame, info, inbuf, GST_MAP_READ)) {
         GST_ERROR_OBJECT (self, "Invalid input buffer size");
         ret = FALSE;
-        break;
+        goto done;
       }
 
       for (i = 0; i < 3; i++) {
@@ -1618,7 +1618,7 @@ gst_omx_video_enc_fill_buffer (GstOMXVideoEnc * self, GstBuffer * inbuf,
           gst_video_frame_unmap (&frame);
           GST_ERROR_OBJECT (self, "Invalid output buffer size");
           ret = FALSE;
-          break;
+          goto done;
         }
 
         for (j = 0; j < height; j++) {
@@ -1648,7 +1648,7 @@ gst_omx_video_enc_fill_buffer (GstOMXVideoEnc * self, GstBuffer * inbuf,
       if (!gst_video_frame_map (&frame, info, inbuf, GST_MAP_READ)) {
         GST_ERROR_OBJECT (self, "Invalid input buffer size");
         ret = FALSE;
-        break;
+        goto done;
       }
       dest_stride = port_def->format.video.nStride;
 
@@ -1677,7 +1677,7 @@ gst_omx_video_enc_fill_buffer (GstOMXVideoEnc * self, GstBuffer * inbuf,
           gst_video_frame_unmap (&frame);
           GST_ERROR_OBJECT (self, "Invalid output buffer size");
           ret = FALSE;
-          break;
+          goto done;
         }
 
         for (j = 0; j < height; j++) {
