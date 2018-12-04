@@ -1921,6 +1921,10 @@ flow_error:
 
       gst_pad_push_event (GST_VIDEO_DECODER_SRC_PAD (self),
           gst_event_new_eos ());
+      if (self->draining) {
+        self->draining = FALSE;
+        g_cond_broadcast (&self->drain_cond);
+      }
     } else if (flow_ret < GST_FLOW_EOS) {
       GST_ELEMENT_ERROR (self, STREAM, FAILED,
           ("Internal data stream error."), ("stream stopped, reason %s",
