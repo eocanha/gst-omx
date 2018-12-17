@@ -2774,7 +2774,7 @@ gst_omx_video_dec_handle_frame (GstVideoDecoder * decoder,
       return GST_FLOW_OK;
     }
 
-    if (gst_omx_port_is_flushing (self->dec_out_port)) {
+    if (gst_omx_port_is_flushing (self->dec_out_port) || self->dec_out_port && self->dec_out_port->buffers == NULL) {
       if (!gst_omx_video_dec_enable (self, frame->input_buffer))
         goto enable_error;
     }
