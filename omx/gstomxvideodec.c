@@ -52,6 +52,8 @@
 #include "gstomxvideo.h"
 #include "gstomxvideodec.h"
 
+#define EGL_NO_DISPLAY 0
+
 GST_DEBUG_CATEGORY_STATIC (gst_omx_video_dec_debug_category);
 #define GST_CAT_DEFAULT gst_omx_video_dec_debug_category
 
@@ -634,7 +636,7 @@ gst_omx_video_dec_allocate_output_buffers (GstOMXVideoDec * self)
     GList *images = NULL;
     gint i;
     GstBufferPoolAcquireParams params = { 0, };
-    EGLDisplay egl_display = EGL_NO_DISPLAY;
+    gpointer egl_display = EGL_NO_DISPLAY;
 
     GST_DEBUG_OBJECT (self, "Trying to allocate %d EGLImages", min);
 
