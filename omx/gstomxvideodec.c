@@ -2171,6 +2171,7 @@ gst_omx_video_dec_disable (GstOMXVideoDec * self)
   GST_DEBUG_OBJECT (self, "Need to disable and drain decoder");
 
   gst_omx_video_dec_drain (GST_VIDEO_DECODER (self));
+  gst_omx_video_dec_flush (GST_VIDEO_DECODER (self));
   gst_omx_port_set_flushing (out_port, 5 * GST_SECOND, TRUE);
 
   if (klass->cdata.hacks & GST_OMX_HACK_NO_COMPONENT_RECONFIGURE) {
@@ -3052,16 +3053,13 @@ release_error:
 }
 
 static GstFlowReturn
-gst_omx_video_dec_drain (GstVideoDecoder * decoder)
+gst_omx_video_dec_finish (GstVideoDecoder * decoder)
 {
-  gboolean ret;
-  ret = gst_omx_video_dec_finish (decoder);
-  gst_omx_video_dec_flush (decoder);
-  return ret;
+  return gst_omx_video_dec_drain (decoder);
 }
 
 static GstFlowReturn
-gst_omx_video_dec_finish (GstVideoDecoder * decoder)
+gst_omx_video_dec_drain (GstVideoDecoder * decoder)
 {
   GstOMXVideoDec *self;
   GstOMXVideoDecClass *klass;
