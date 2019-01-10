@@ -2617,6 +2617,19 @@ gst_omx_video_dec_set_format (GstVideoDecoder * decoder,
   gst_omx_video_dec_set_latency (self);
 #endif
 
+  if (!gst_omx_video_dec_enable (self, NULL)) {
+    /* Report the OMX error, if any */
+    if (gst_omx_component_get_last_error (self->dec) != OMX_ErrorNone)
+      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
+          ("Failed to enable OMX decoder: %s (0x%08x)",
+              gst_omx_component_get_last_error_string (self->dec),
+              gst_omx_component_get_last_error (self->dec)));
+    else
+      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
+          ("Failed to enable OMX decoder"));
+    return FALSE;
+  }
+
   self->downstream_flow_ret = GST_FLOW_OK;
   return TRUE;
 }
@@ -2738,11 +2751,6 @@ gst_omx_video_dec_handle_frame (GstVideoDecoder * decoder,
     if (!GST_VIDEO_CODEC_FRAME_IS_SYNC_POINT (frame)) {
       gst_video_decoder_drop_frame (GST_VIDEO_DECODER (self), frame);
       return GST_FLOW_OK;
-    }
-
-    if (gst_omx_port_is_flushing (self->dec_out_port) || self->dec_out_port && self->dec_out_port->buffers == NULL) {
-      if (!gst_omx_video_dec_enable (self, frame->input_buffer))
-        goto enable_error;
     }
 
     GST_DEBUG_OBJECT (self, "Starting task");
@@ -3007,21 +3015,6 @@ map_failed:
     gst_video_codec_frame_unref (frame);
     GST_ELEMENT_ERROR (self, STREAM, FORMAT, (NULL),
         ("failed to map input buffer"));
-    return GST_FLOW_ERROR;
-  }
-
-enable_error:
-  {
-    /* Report the OMX error, if any */
-    if (gst_omx_component_get_last_error (self->dec) != OMX_ErrorNone)
-      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
-          ("Failed to enable OMX decoder: %s (0x%08x)",
-              gst_omx_component_get_last_error_string (self->dec),
-              gst_omx_component_get_last_error (self->dec)));
-    else
-      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
-          ("Failed to enable OMX decoder"));
-    gst_video_codec_frame_unref (frame);
     return GST_FLOW_ERROR;
   }
 
