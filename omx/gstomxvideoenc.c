@@ -2362,6 +2362,19 @@ gst_omx_video_enc_set_format (GstVideoEncoder * encoder,
   gst_omx_video_enc_set_latency (self);
 #endif
 
+  if (!gst_omx_video_enc_enable (self, NULL)) {
+    /* Report the OMX error, if any */
+    if (gst_omx_component_get_last_error (self->enc) != OMX_ErrorNone)
+      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
+          ("Failed to enable OMX encoder: %s (0x%08x)",
+              gst_omx_component_get_last_error_string (self->enc),
+              gst_omx_component_get_last_error (self->enc)));
+    else
+      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
+          ("Failed to enable OMX encoder"));
+    return FALSE;
+  }
+
   self->downstream_flow_ret = GST_FLOW_OK;
   return TRUE;
 }
@@ -2738,11 +2751,6 @@ gst_omx_video_enc_handle_frame (GstVideoEncoder * encoder,
   }
 
   if (!self->started) {
-    if (gst_omx_port_is_flushing (self->enc_out_port)) {
-      if (!gst_omx_video_enc_enable (self, frame->input_buffer))
-        goto enable_error;
-    }
-
     GST_DEBUG_OBJECT (self, "Starting task");
     gst_pad_start_task (GST_VIDEO_ENCODER_SRC_PAD (self),
         (GstTaskFunction) gst_omx_video_enc_loop, self, NULL);
@@ -2949,21 +2957,6 @@ flow_error:
   {
     gst_video_codec_frame_unref (frame);
     return self->downstream_flow_ret;
-  }
-
-enable_error:
-  {
-    /* Report the OMX error, if any */
-    if (gst_omx_component_get_last_error (self->enc) != OMX_ErrorNone)
-      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
-          ("Failed to enable OMX encoder: %s (0x%08x)",
-              gst_omx_component_get_last_error_string (self->enc),
-              gst_omx_component_get_last_error (self->enc)));
-    else
-      GST_ELEMENT_ERROR (self, LIBRARY, FAILED, (NULL),
-          ("Failed to enable OMX encoder"));
-    gst_video_codec_frame_unref (frame);
-    return GST_FLOW_ERROR;
   }
 
 component_error:
