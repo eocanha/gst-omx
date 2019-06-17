@@ -1194,6 +1194,8 @@ done:
 static gboolean
 gst_omx_video_dec_deallocate_output_buffers (GstOMXVideoDec * self)
 {
+  OMX_ERRORTYPE err;
+
   if (self->out_port_pool) {
     /* Pool will free buffers when stopping */
     gst_buffer_pool_set_active (self->out_port_pool, FALSE);
@@ -1203,8 +1205,6 @@ gst_omx_video_dec_deallocate_output_buffers (GstOMXVideoDec * self)
     GST_OMX_BUFFER_POOL (self->out_port_pool)->deactivated = TRUE;
     gst_object_unref (self->out_port_pool);
     self->out_port_pool = NULL;
-  } else {
-    OMX_ERRORTYPE err;
 
 #if defined (USE_OMX_TARGET_RPI) && defined (HAVE_GST_GL)
     err =
