@@ -2803,7 +2803,8 @@ gst_omx_video_dec_handle_frame (GstVideoDecoder * decoder,
      * _loop() can't call _finish_frame() and we might block forever
      * because no input buffers are released */
     GST_VIDEO_DECODER_STREAM_UNLOCK (self);
-    acq_ret = gst_omx_port_acquire_buffer (port, &buf, GST_OMX_WAIT);
+    //acq_ret = gst_omx_port_acquire_buffer (port, &buf, GST_OMX_WAIT);
+    acq_ret = gst_omx_port_acquire_buffer_timeout (port, &buf, 1 * GST_SECOND);
 
     if (acq_ret == GST_OMX_ACQUIRE_BUFFER_ERROR) {
       GST_VIDEO_DECODER_STREAM_LOCK (self);
@@ -2868,6 +2869,15 @@ gst_omx_video_dec_handle_frame (GstVideoDecoder * decoder,
       /* Now get a new buffer and fill it */
       GST_VIDEO_DECODER_STREAM_LOCK (self);
       continue;
+    } else if (acq_ret == GST_OMX_ACQUIRE_BUFFER_NO_AVAILABLE) {
+      GST_VIDEO_DECODER_STREAM_LOCK (self);
+      if (self->downstream_flow_ret == GST_FLOW_FLUSHING) {
+        GST_DEBUG_OBJECT (self, "Flushing, not waiting to acquire an OMX input buffer anymore");
+        goto flushing;
+      } else {
+        GST_DEBUG_OBJECT (self, "Timeout acquiring OMX input buffer, retrying");
+        continue;
+      }
     }
     GST_VIDEO_DECODER_STREAM_LOCK (self);
 

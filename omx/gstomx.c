@@ -2071,17 +2071,24 @@ gst_omx_port_update_port_definition (GstOMXPort * port,
   else
     return err_get;
 }
-
 /* NOTE: Uses comp->lock and comp->messages_lock */
 GstOMXAcquireBufferReturn
 gst_omx_port_acquire_buffer (GstOMXPort * port, GstOMXBuffer ** buf,
     GstOMXWait wait)
 {
+  return gst_omx_port_acquire_buffer_timeout (port, buf,
+    wait == GST_OMX_WAIT ? GST_CLOCK_TIME_NONE : 0);
+}
+
+/* NOTE: Uses comp->lock and comp->messages_lock */
+GstOMXAcquireBufferReturn
+gst_omx_port_acquire_buffer_timeout (GstOMXPort * port, GstOMXBuffer ** buf,
+    gint64 timeout)
+{
   GstOMXAcquireBufferReturn ret = GST_OMX_ACQUIRE_BUFFER_ERROR;
   GstOMXComponent *comp;
   OMX_ERRORTYPE err;
   GstOMXBuffer *_buf = NULL;
-  gint64 timeout = GST_CLOCK_TIME_NONE;
 
   g_return_val_if_fail (port != NULL, GST_OMX_ACQUIRE_BUFFER_ERROR);
   g_return_val_if_fail (!port->tunneled, GST_OMX_ACQUIRE_BUFFER_ERROR);
@@ -2097,11 +2104,6 @@ gst_omx_port_acquire_buffer (GstOMXPort * port, GstOMXBuffer ** buf,
 
 retry:
   gst_omx_component_handle_messages (comp);
-
-  /* If we are in the case where we waited for a buffer after EOS,
-   * make sure we don't do that again */
-  if (timeout != -1)
-    timeout = -2;
 
   /* Check if the component is in an error state */
   if ((err = comp->last_error) != OMX_ErrorNone) {
@@ -2180,7 +2182,7 @@ retry:
       goto done;
     }
 
-    if (comp->hacks & GST_OMX_HACK_SIGNALS_PREMATURE_EOS && timeout != -2) {
+    if (comp->hacks & GST_OMX_HACK_SIGNALS_PREMATURE_EOS && timeout == 0) {
       timeout = 33 * GST_MSECOND;
 
       GST_DEBUG_OBJECT (comp->parent, "%s output port %u is EOS but waiting "
@@ -2205,18 +2207,23 @@ retry:
    * or the port needs to be reconfigured.
    */
   if (g_queue_is_empty (&port->pending_buffers)) {
+    gboolean signaled;
+
     GST_DEBUG_OBJECT (comp->parent, "Queue of %s port %u is empty",
         comp->name, port->index);
 
-    if (wait == GST_OMX_WAIT) {
-      gst_omx_component_wait_message (comp,
-          timeout == -2 ? GST_CLOCK_TIME_NONE : timeout);
+    signaled = gst_omx_component_wait_message (comp, timeout);
 
+    if (timeout == GST_CLOCK_TIME_NONE || signaled) {
       /* And now check everything again and maybe get a buffer */
       goto retry;
     } else {
       ret = GST_OMX_ACQUIRE_BUFFER_NO_AVAILABLE;
-      goto done;
+      g_mutex_unlock (&comp->lock);
+      GST_DEBUG_OBJECT (comp->parent, "Couldn't acquire buffer from %s port %u after %" G_GINT64_FORMAT " nsec timeout (%s)",
+          comp->name, port->index, timeout, signaled ? "signaled" : "not signaled");
+
+      return ret;
     }
   }
 
