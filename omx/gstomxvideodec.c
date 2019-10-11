@@ -1648,8 +1648,14 @@ gst_omx_video_dec_loop (GstOMXVideoDec * self)
     if (acq_return == GST_OMX_ACQUIRE_BUFFER_RECONFIGURE) {
       /* We have the possibility to reconfigure everything now */
       err = gst_omx_video_dec_reconfigure_output_port (self);
-      if (err != OMX_ErrorNone)
+      if (err != OMX_ErrorNone) {
+        if (GST_PAD_IS_FLUSHING(GST_VIDEO_DECODER_SRC_PAD(GST_VIDEO_DECODER(self)))) {
+          GST_DEBUG_OBJECT (self, "Src pad is flushing, ignoring reconfigure result and stopping task");
+          goto flushing;
+        }
+
         goto reconfigure_error;
+      }
     } else {
       /* Just update caps */
       GST_VIDEO_DECODER_STREAM_LOCK (self);
@@ -2803,7 +2809,7 @@ gst_omx_video_dec_handle_frame (GstVideoDecoder * decoder,
      * _loop() can't call _finish_frame() and we might block forever
      * because no input buffers are released */
     GST_VIDEO_DECODER_STREAM_UNLOCK (self);
-    acq_ret = gst_omx_port_acquire_buffer (port, &buf, GST_OMX_WAIT);
+    acq_ret = gst_omx_port_acquire_buffer_timeout (port, &buf, 1 * GST_SECOND);
 
     if (acq_ret == GST_OMX_ACQUIRE_BUFFER_ERROR) {
       GST_VIDEO_DECODER_STREAM_LOCK (self);
@@ -2868,6 +2874,18 @@ gst_omx_video_dec_handle_frame (GstVideoDecoder * decoder,
       /* Now get a new buffer and fill it */
       GST_VIDEO_DECODER_STREAM_LOCK (self);
       continue;
+    } else if (acq_ret == GST_OMX_ACQUIRE_BUFFER_NO_AVAILABLE) {
+      GST_VIDEO_DECODER_STREAM_LOCK (self);
+      if (self->downstream_flow_ret == GST_FLOW_FLUSHING) {
+        GST_DEBUG_OBJECT (self, "Flushing, not waiting to acquire an OMX input buffer anymore");
+        goto flushing;
+      } else if (self->downstream_flow_ret == GST_FLOW_ERROR) {
+        GST_DEBUG_OBJECT (self, "Flow error, not waiting to acquire an OMX input buffer anymore");
+        goto flow_error;
+      } else {
+        GST_DEBUG_OBJECT (self, "Timeout acquiring OMX input buffer, retrying");
+        continue;
+      }
     }
     GST_VIDEO_DECODER_STREAM_LOCK (self);
 
